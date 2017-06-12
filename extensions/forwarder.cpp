@@ -35,7 +35,7 @@
 #include <string>
 #include <memory>
 
-#include <iostream>
+//#include <iostream>
 
 using namespace std;
 
@@ -334,6 +334,7 @@ Forwarder::onInterestFinalize(const shared_ptr<pit::Entry>& pitEntry, bool isSat
 void
 Forwarder::onIncomingData(Face& inFace, const Data& data)
 {
+  //Data from App is on Face ID #258... though will need to check this theory...
   // receive Data
   NFD_LOG_DEBUG("onIncomingData face=" << inFace.getId() << " data=" << data.getName());
   //cout << "onIncomingData face=" << inFace.getId() << " data=" << data.getName() << endl;
@@ -350,6 +351,8 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
     return;
   }
 
+  bool fromApplicationData = (inFace.getId() == 258);
+
   bool isSetupData = true;
 
   bool appData = false;
@@ -360,7 +363,8 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
   }
   bool keyData = data.getName().isPrefixOf(Name("/prefix/key"));
 
-  if(appData || keyData)
+  //if appData or KeyData and is not from my application
+  if((appData || keyData) && !fromApplicationData)
   {
      //cout << "Is Application Data!" << data.getName() << endl;
      isSetupData = false;
@@ -555,17 +559,16 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
             if(!isKeyData)
             {
                if (pendingDownstream == &inFace) {
-                   cout << "not sending it down stream" << endl;
+                   //cout << "not sending it down stream" << endl;
                    continue;
                   }
                // goto outgoing Data pipeline
                this->onOutgoingData(data, *pendingDownstream);
-               cout << "not key and sending it downstream" << data.getName() << endl;
            }
            else
            {
               this->onOutgoingData(data, *pendingDownstream);
-              cout<< "is key that I got so sending it downstream" << endl;
+              //cout<< "is key that I got so sending it downstream" << endl;
            }
         }
      }//else end bracket for if no matches in pit
