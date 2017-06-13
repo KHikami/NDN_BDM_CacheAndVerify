@@ -25,17 +25,18 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/point-to-point-layout-module.h"
 #include "ns3/ndnSIM-module.h"
+#include "ns3/ndnSIM/utils/tracers/ndn-app-delay-tracer.hpp"
 
 namespace ns3 {
 
 /**
  * This scenario simulates a grid topology (using PointToPointGrid module)
  *
- * (consumer1) -- ( ) ----(signer)
- *      |          |         |
- * (consumer2) -- ( ) ---  (evil)
- *      |          |         |
- * (consumer3) -- ( ) -- (producer)
+ * (consumer) -- ( ) ----- (signer)
+ *     |          |         |
+ *    ( ) ------ ( ) ----- ( )
+ *     |          |         |
+ *    ( ) ------ ( ) -- (producer)
  *
  * All links are 1Mbps with propagation 10ms delay.
 */
@@ -59,8 +60,6 @@ main(int argc, char* argv[])
 
   // Install NDN stack on all nodes
   ndn::StackHelper ndnHelper;
-  ndnHelper.SetOldContentStore(
-    "ns3::ndn::cs::Freshness::Lru");
   ndnHelper.InstallAll();
 
   // Set BestRoute strategy
@@ -70,66 +69,35 @@ main(int argc, char* argv[])
   ndn::GlobalRoutingHelper ndnGlobalRoutingHelper;
   ndnGlobalRoutingHelper.InstallAll();
 
-  // Labeling which node is which.
-  Ptr<Node> goodProducer = grid.GetNode(2,2);
-  Ptr<Node> evilProducer = grid.GetNode(1,2);
+  // Getting containers for the consumer/producer
+  Ptr<Node> producer = grid.GetNode(2, 2);
+  NodeContainer consumerNodes;
+  consumerNodes.Add(grid.GetNode(0, 0));
   Ptr<Node> signer = grid.GetNode(0,2);
-  Ptr<Node> consumer1= grid.GetNode(0,0);
-  Ptr<Node> consumer2= grid.GetNode(1,0);
-  Ptr<Node> consumer3= grid.GetNode(2,0);
 
   // Install NDN applications
   std::string dataPrefix = "/prefix/data";
   std::string keyPrefix = "/prefix/key";
-  std::string goodPayloadSize = "1024";
 
   ndn::AppHelper consumerHelper("ns3::ndn::SecurityToyClientApp");
   consumerHelper.SetPrefix(dataPrefix);
   consumerHelper.SetAttribute("WaitTime", StringValue("1.0"));
   consumerHelper.SetAttribute("ReactionTime", StringValue("0.5"));
   consumerHelper.SetAttribute("KeyName", StringValue(keyPrefix));
-  consumerHelper.Install(consumer1);
+  consumerHelper.Install(consumerNodes);
 
-  //Consumer2: delay start time of 1
-  ndn::AppHelper consumerHelper2("ns3::ndn::SecurityToyClientApp");
-  consumerHelper2.SetPrefix(dataPrefix);
-  consumerHelper2.SetAttribute("WaitTime", StringValue("1.0"));
-  consumerHelper.SetAttribute("ReactionTime", StringValue("0.5"));
-  consumerHelper2.SetAttribute("KeyName", StringValue(keyPrefix));
-  consumerHelper2.SetAttribute("DelayStart", StringValue("1"));
-  consumerHelper2.Install(consumer2);
-
-  //Consumer3: delay start time of 2
-  ndn::AppHelper consumerHelper3("ns3::ndn::SecurityToyClientApp");
-  consumerHelper3.SetPrefix(dataPrefix);
-  consumerHelper3.SetAttribute("WaitTime", StringValue("1.0"));
-  consumerHelper.SetAttribute("ReactionTime", StringValue("0.5"));
-  consumerHelper3.SetAttribute("KeyName", StringValue(keyPrefix));
-  consumerHelper3.SetAttribute("DelayStart", StringValue("2"));
-  consumerHelper3.Install(consumer3);
-
-  //Good Producer
   ndn::AppHelper producerHelper("ns3::ndn::Producer");
-  // Producer will reply to all requests starting with /prefix
   producerHelper.SetPrefix(dataPrefix);
-  producerHelper.SetAttribute("PayloadSize", StringValue(goodPayloadSize));
-  producerHelper.Install(goodProducer);
+  producerHelper.SetAttribute("PayloadSize", StringValue("1024"));
+  producerHelper.Install(producer);
 
-  ndnGlobalRoutingHelper.AddOrigins(dataPrefix, goodProducer);
-
-  //Evil Producer
-  ndn::AppHelper evilHelper("ns3::ndn::EvilProducerApp");
-  evilHelper.SetPrefix(dataPrefix);
-  evilHelper.SetAttribute("PayloadSize", StringValue("1000"));
-  evilHelper.Install(evilProducer);
-  ndnGlobalRoutingHelper.AddOrigins(dataPrefix, evilProducer);
-
-  //Signer
   ndn::AppHelper signerHelper("ns3::ndn::Producer");
   signerHelper.SetPrefix(keyPrefix);
   signerHelper.SetAttribute("PayloadSize", StringValue("1024"));
   signerHelper.Install(signer);
 
+  // Add /prefix origins to ndn::GlobalRouter
+  ndnGlobalRoutingHelper.AddOrigins(dataPrefix, producer);
   ndnGlobalRoutingHelper.AddOrigins(keyPrefix, signer);
 
   // Calculate and install FIBs
@@ -137,7 +105,7 @@ main(int argc, char* argv[])
 
   Simulator::Stop(Seconds(20.0));
 
-  ndn::AppDelayTracer::InstallAll("results/distributed-cache-poisoning-app-delays-trace.txt");
+  ndn::AppDelayTracer::InstallAll("results/grid-signer-app-delays-trace.txt");
 
   Simulator::Run();
   Simulator::Destroy();

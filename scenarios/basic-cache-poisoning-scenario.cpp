@@ -26,8 +26,6 @@
 #include "ns3/point-to-point-layout-module.h"
 #include "ns3/ndnSIM-module.h"
 
-#include "security-toy-client-app.hpp"
-
 using namespace std;
 
 namespace ns3 {
@@ -89,13 +87,13 @@ main(int argc, char* argv[])
   // Installing applications
   std::string dataPrefix = "/prefix/data";
   std::string keyPrefix = "/prefix/key";
-  std::string evilComponent = "/evil";
   std::string goodPayloadSize = "1024";
 
   // Consumer
   AppHelper consumerHelper("ns3::ndn::SecurityToyClientApp");
   consumerHelper.SetPrefix(dataPrefix);
-  consumerHelper.SetAttribute("WaitTime", StringValue("2"));//sends out a new interest for a packet per this int.
+  consumerHelper.SetAttribute("WaitTime", StringValue("1.0"));//sends out a new interest for a packet per this int.
+  consumerHelper.SetAttribute("ReactionTime", StringValue("0.5"));
   consumerHelper.SetAttribute("KeyName", StringValue(keyPrefix));
   consumerHelper.Install(consumerNodes);
 
@@ -118,7 +116,7 @@ main(int argc, char* argv[])
   //Signer
   ndn::AppHelper signerHelper("ns3::ndn::Producer");
   signerHelper.SetPrefix(keyPrefix);
-  signerHelper.SetAttribute("PayloadSize", StringValue("1024"));
+  signerHelper.SetAttribute("PayloadSize", StringValue(goodPayloadSize));
   signerHelper.Install(signer);
 
   ndnGlobalRoutingHelper.AddOrigins(keyPrefix, signer);
