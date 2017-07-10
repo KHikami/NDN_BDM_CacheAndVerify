@@ -351,7 +351,9 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
     return;
   }
 
-  bool fromApplicationData = (inFace.getId() == 258);
+  FaceId lastFaceId = m_faceTable.getLastFaceId();
+  //app data shouold be the last face ID based on what I'm seeing as the pattern
+  bool fromApplicationData = (inFace.getId() == lastFaceId);
 
   bool isSetupData = true;
 
@@ -359,7 +361,7 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
   if(data.getName().size() >= 2)
   {
     //cout << "Data Prefix is: " << data.getName().getPrefix(2) << endl;
-    appData = data.getName().getPrefix(2).isPrefixOf(Name("/prefix/data"));//the data/evil data isn't getting caught
+    appData = data.getName().getPrefix(2).isPrefixOf(Name("/prefix/data"));
   }
   bool keyData = data.getName().isPrefixOf(Name("/prefix/key"));
 
@@ -437,11 +439,9 @@ Forwarder::onIncomingData(Face& inFace, const Data& data)
              //cout << "adding the data to push back"<< endl;
              m_dataToBeVerified.push_back(data.shared_from_this());
              m_dataToBeVerifiedInFaces.push_back(inFace.getId());
+             Face& appFace = *(m_faceTable.get(lastFaceId));
 
-             //cout << "Created key interest: " << keyInterest->toUri() << endl;
-             //process key interest :)
-
-             this->startProcessInterest(inFace, *keyInterest);
+             this->startProcessInterest(appFace, *keyInterest);
               //cout << "Finished processing key interest!" << endl;
              m_keyOriginatedFromHere = true;
              //get out of method once key interest sent.
