@@ -87,6 +87,8 @@ SecurityToyClientApp::SecurityToyClientApp()
    m_pursuitMode = false;
    m_goodDataSize = 1024;
    m_seqMax = std::numeric_limits<uint32_t>::max(); //needed to be able to send the packets
+   m_seq = 1; //start at 1 for the data packets
+   m_keyRequestInterestSeq = 0;
 }
 
 
@@ -109,12 +111,6 @@ SecurityToyClientApp::SendPacket()
 
   uint32_t seq = std::numeric_limits<uint32_t>::max(); // invalid
 
-  if(m_pursuitMode && !m_verificationMode)
-  {
-     seq = m_originalSequenceNumber;
-  }
-  //NS_LOG_INFO ("Trying to send a packet");
-
   while (m_retxSeqs.size()) {
     seq = *m_retxSeqs.begin();
     m_retxSeqs.erase(m_retxSeqs.begin());
@@ -130,7 +126,22 @@ SecurityToyClientApp::SendPacket()
       }
     }
 
-    seq = m_seq++;
+    if(!m_verificationMode && !m_pursuitMode)
+    {
+       seq = m_seq++;
+    }
+    else
+    {
+       if(m_pursuitMode && !m_verificationMode)
+       {
+          seq = m_originalSequenceNumber;
+       }
+       else
+       {
+          seq = m_keyRequestInterestSeq; 
+       }
+    }
+    //cout << "Sequence number for next packet is: " << seq << ". Following packet will be: " << m_seq << endl;
   }
 
   if(!m_verificationMode && !m_pursuitMode)
@@ -180,18 +191,19 @@ SecurityToyClientApp::SendPacket()
       NS_LOG_DEBUG("Interest with Exclude: " << interest->toUri()); 
 
       NS_LOG_INFO("> Requesting new data for " << seq << ", Total: " << m_seq << ", face: " << m_face->getId());
-      cout << "> Requesting new data for " << seq << ", Total: " << m_seq << ", face: " << m_face->getId() << endl;
+      //cout << "> Requesting new data for " << seq << ", Total: " << m_seq << ", face: " << m_face->getId() << endl;
     }
     else
-    { 
+    {
       interest = make_shared<Interest>();
       interest->setNonce(m_rand->GetValue(0,std::numeric_limits<uint32_t>::max()));
       interest->setName(m_keyName);
       time::milliseconds interestLifeTime(m_interestLifeTime.GetMilliSeconds());
       interest->setInterestLifetime(interestLifeTime);
       NS_LOG_INFO("> Interest for " << seq << ", is a Key Request Interest");
-      cout << "> Interest for " << seq << ", is a Key Request Interest" << endl;
-      m_keyRequestInterestSeq = seq;
+      //cout << "> Interest for " << seq << ", is a Key Request Interest" << endl;
+      
+      m_seqRetxCounts[seq] = 0;
     }
   }
   m_seqTimeouts.insert(SeqTimeout(seq, Simulator::Now()));
